@@ -1,0 +1,29 @@
+name: Deploy to AWS ECS
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Login to AWS ECR
+        run: |
+          aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin <AWS_ACCOUNT_ID>.dkr.ecr.us-east-1.amazonaws.com
+
+      - name: Build and Push Docker Image
+        run: |
+          IMAGE_TAG=$(date +%s)
+          docker build -t hello-world-api:$IMAGE_TAG .
+          docker tag hello-world-api:$IMAGE_TAG <AWS_ACCOUNT_ID>.dkr.ecr.us-east-1.amazonaws.com/hello-world-api:$IMAGE_TAG
+          docker push <AWS_ACCOUNT_ID>.dkr.ecr.us-east-1.amazonaws.com/hello-world-api:$IMAGE_TAG
+          echo "IMAGE_TAG=$IMAGE_TAG" >> $GITHUB_ENV
+
+      - name: Update ECS Task Definition
+        run: |
+          aws ecs update-service --cluster hello-world-cluster --service hello-world-service --force-new-deployment
